@@ -130,11 +130,7 @@ outcome_TEST1 <- TEST1_results %>%
             sd_sen = sd(sensitivity),
             average_spec = mean(specificity),
             sd_spec = sd(specificity))#,
-            # average_cor = mean(correlation),
-            # sd_cor = sd(correlation),
-            # average_MAE = mean(MAE),
-            # sd_MAE = sd(MAE))
-#outcome_TEST1
+
 
 average_TEST1 <- outcome_TEST1 %>% 
   pivot_longer(c('average_sen', 'average_spec'), 
@@ -146,17 +142,17 @@ sd_TEST1 <- outcome_TEST1 %>%
 
 average_sd_TEST1 <- cbind(as.data.frame(average_TEST1), sd = sd_TEST1$sd_value)
 average_sd_TEST1 <- mutate(average_sd_TEST1, ymax = outcome_value + sd,
-                          ymin = outcome_value - sd)
+                           ymin = outcome_value - sd)
 
 #values between 0 and 1
 average_sd_TEST1$ymax[average_sd_TEST1$ymax > 1] <- 1
 average_sd_TEST1$ymin[average_sd_TEST1$ymin < 0] <- 0
 
 average_sd_TEST1 <- transform(average_sd_TEST1, 
-                             outcome_measure = factor(outcome_measure, levels = c('average_sen', 'average_spec'), 
-                                                      labels = c("Sensitivity", "Specificity")),
-                             p_conn = factor(p_conn, levels = c(0.023, 0.1, 0.3, 0.6),
-                                                 labels = c("Lowest", "Low", "Medium", "High")))
+                              outcome_measure = factor(outcome_measure, levels = c('average_sen', 'average_spec'), 
+                                                       labels = c("Sensitivity", "Specificity")),
+                              p_conn = factor(p_conn, levels = c(0.023, 0.1, 0.3, 0.6),
+                                              labels = c("Lowest", "Low", "Medium", "High")))
 
 
 ggplot(average_sd_TEST1, aes(x = as.factor(n), y = outcome_value, colour = as.factor(p_conn), group = as.factor(p_conn))) +
@@ -192,7 +188,7 @@ parSim(
     library(bootnet)
     library(dplyr)
     library(qgraph)
-
+    
     
     #data
     true_weights <- weights_random1 %>%
@@ -219,26 +215,27 @@ TEST1_weights_results <- read.table("TEST1_weights.txt", header = TRUE)
 
 #make false_pos variable
 TEST1_weights_results <- mutate(TEST1_weights_results,
-                               false_pos = if_else(true_weights == 0 & est_weights != 0, 1, 0))
+                                false_pos = if_else(true_weights == 0 & est_weights != 0, 1, 0))
 
 #relabel variables
 TEST1_weights_results <- transform(TEST1_weights_results, 
-                                  n = factor(n, levels = c(500, 1000, 2500),
-                                             labels = c("n = 500", "n = 1000", "n = 2500")),
-                                  p_conn = factor(p_conn, levels = c(0.1, 0.3, 0.6),
-                                                  labels = c("Low", "Medium", "High")),
-                                  false_pos = factor(false_pos, levels = c(0, 1),
-                                                     labels = c("No", "Yes")))
+                                   n = factor(n, levels = c(500, 1000, 2500),
+                                              labels = c("n = 500", "n = 1000", "n = 2500")),
+                                   p_conn = factor(p_conn, levels = c(0.1, 0.3, 0.6),
+                                                   labels = c("Low", "Medium", "High")),
+                                   false_pos = factor(false_pos, levels = c(0, 1),
+                                                      labels = c("No", "Yes")))
 
 #plot
 ggplot(TEST1_weights_results, aes(x = est_weights, y = true_weights, colour = as.factor(false_pos))) +
   geom_point() +
-  ylim(-0.5, 0.5) +
-  xlim(-0.5, 0.5) +
+  ylim(-1, 1) +
+  xlim(-1, 1) +
   labs(x = "Estimated edge weights", y = "True edge weights", colour = "False positive?") +
   scale_colour_manual(values = c(1, 2)) +
   theme_bw() +
   facet_grid(n ~ p_conn)
+
 
 
 # TEST2 g-wishart distribution 20 df ----
@@ -253,42 +250,29 @@ p_conn <- c( 0.023, 0.1, 0.3, 0.6)
 
 set.seed(222)
 
-for (i in 1:2) {
+for (i in 1:4) {
   graph_random2 <- erdos.renyi.game(20, p_conn[i], type = "gnp")
   adj <- as.matrix(get.adjacency(graph_random2))
-  weights <- as.matrix(rgwish(n = 1, adj = adj, b = 20, D = diag(20, 20)))
-  diag(weights) <- 0 #for some reason rgwish doesn't make diagonal 0
+  precision_mat <- as.matrix(rgwish(n = 1, adj = adj, b = 20, D = diag(20, 20)))
+  weights <- -cov2cor(precision_mat) 
+  diag(weights) <- 0
   random_temp2 <- rbind(random_temp2, round(weights, 8))
 }
 
-set.seed(500)
-graph_random23 <- erdos.renyi.game(20, 0.3, type = "gnp")
-adj <- as.matrix(get.adjacency(graph_random23))
-weights <- as.matrix(rgwish(n = 1, adj = adj, b = 20, D = diag(20, 20)))
-diag(weights) <- 0 #for some reason rgwish doesn't make diagonal 0
-random_temp2 <- rbind(random_temp2, round(weights, 8))
-
-set.seed(82)#82 min -.52 max .54     101 min -.56 max .64
-graph_random26 <- erdos.renyi.game(20, 0.6, type = "gnp")
-adj <- as.matrix(get.adjacency(graph_random26))
-weights <- as.matrix(rgwish(n = 1, adj = adj, b = 20, D = diag(20, 20)))
-diag(weights) <- 0 #for some reason rgwish doesn't make diagonal 0
-random_temp2 <- rbind(random_temp2, round(weights, 8))
 
 random_temp2 <- na.omit(random_temp2) #remove first row with NA's
-
 
 #test min & max parcors
 min(random_temp2)
 max(random_temp2)
-mean(random_temp2)
-sd(random_temp2)
 
+#look at distribution of edge weights
 hist(random_temp2[1:20, ])
 hist(random_temp2[21:40, ])
 hist(random_temp2[41:60, ])
 hist(random_temp2[61:80, ])
-# qgraph(random_temp2[61:80, ], layout = "spring")
+
+
 
 #make a data frame with network type, connectivity level and all weights
 weights_random2 <- data.frame(
@@ -350,7 +334,6 @@ parSim(
 
 
 TEST2_results <- read.table("TEST2_parcors.txt", header = TRUE)
-
 #PLOT TEST 2 ----
 
 #sensitivity
@@ -365,7 +348,7 @@ ggplot(TEST2_results, aes(x = factor(n), y = specificity, fill = factor(p_conn))
 
 
 
-#specificity is extremely low (between .6 and .4, lower than williams) for conn_level 0.6
+
 
 #make a nice plot
 #average outcome 
@@ -374,7 +357,7 @@ outcome_TEST2 <- TEST2_results %>%
   summarise(average_sen = mean(sensitivity, na.rm = TRUE),
             sd_sen = sd(sensitivity, na.rm = TRUE),
             average_spec = mean(specificity, na.rm = TRUE),
-            sd_spec = sd(specificity, na.rm = TRUE))
+            sd_spec = sd(specificity, na.rm = TRUE))#,
 
 
 average_TEST2 <- outcome_TEST2 %>% 
@@ -411,16 +394,7 @@ ggplot(average_sd_TEST2, aes(x = as.factor(n), y = outcome_value, colour = as.fa
   theme_bw() +
   facet_grid(. ~ outcome_measure)
 
-
-#look at nr of errors
-TEST2_error <- filter(TEST2_results, error == TRUE)
-
-ggplot(TEST2_error, aes(x = factor(n), fill = factor(p_conn))) +
-  geom_bar() +
-  ylim(0, 100)
-
-
-
+#specificity drops to 0.6 for high conn_level
 
 # TEST2 weights + plot----
 #simulation saving edge weights
@@ -490,14 +464,6 @@ ggplot(TEST2_weights_results, aes(x = est_weights, y = true_weights, colour = as
   scale_colour_manual(values = c(1, 2)) +
   theme_bw() +
   facet_grid(n ~ p_conn)
-
-
-#look at nr of errors
-TEST2w_error <- filter(TEST2_weights_results, error == TRUE)
-
-ggplot(TEST2w_error, aes(x = factor(n), fill = factor(p_conn))) +
-  geom_bar() +
-  ylim(0, 10)
 
 
 
@@ -630,11 +596,7 @@ outcome_TEST3 <- TEST3_results %>%
             sd_sen = sd(sensitivity, na.rm = TRUE),
             average_spec = mean(specificity, na.rm = TRUE),
             sd_spec = sd(specificity, na.rm = TRUE))#,
-# average_cor = mean(correlation),
-# sd_cor = sd(correlation),
-# average_MAE = mean(MAE),
-# sd_MAE = sd(MAE))
-#outcome_TEST1
+
 
 average_TEST3 <- outcome_TEST3 %>% 
   pivot_longer(c('average_sen', 'average_spec'), 
